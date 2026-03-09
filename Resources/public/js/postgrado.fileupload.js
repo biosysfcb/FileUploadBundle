@@ -16,7 +16,7 @@ function FileUploadOptions () {
     //    url: url,
         this.dataType = 'json';
         this.maxFileSize = 5 * 1024 * 1024; // 5 MB default, should be overwritten by config
-        this.acceptFileTypes = /(\.|\/)(pdf)$/i; // PDF default, should be overwritten by config
+        this.acceptFileTypes = /(\.|\/)(pdf|doc|docx)$/i; // PDF default, should be overwritten by config
         this.maxNumberOfFiles = 1;
         this.limitConcurrentUploads = 1;
         this.messages = {

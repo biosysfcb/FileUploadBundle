@@ -55,6 +55,7 @@ class DefaultController extends Controller
             'exe' => 'application/octet-stream',
             'zip' => 'application/zip',
             'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'xls' => 'application/vnd.ms-excel',
             'ppt' => 'application/vnd.ms-powerpoint',
             'gif' => 'image/gif',
