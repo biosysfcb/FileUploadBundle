@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -297,5 +298,123 @@ class UploadHandler {
         }
 
         return $mapping;
+    }
+
+    /**
+     * Get the routing information of the referer.
+     * Adapted from: https://www.strangebuzz.com/en/snippets/get-the-routing-information-of-the-referer
+     *
+     * @param RouterInterface $router
+     */
+    public function getRouteFromReferer(Request $request)
+    {
+        $referer = (string) $request->headers->get('referer'); // get the referer, it can be empty!
+
+        // Empty referer
+        if (!$referer) {
+            return '';
+        }
+
+        $refererPathInfo = Request::create($referer)->getPathInfo();
+
+        // Remove the scriptname if using a dev controller like app_dev.php (Symfony 3.x only)
+        $refererPathInfo = str_replace($request->getScriptName(), '', $refererPathInfo);
+
+        // try to match the path with the application routing
+        $routeInfos = $this->router->match($refererPathInfo);
+
+        // get the Symfony route name
+        $refererRoute = $routeInfos['_route'] ?? '';
+
+        return $refererRoute;
+        // That's it!
+    }
+
+    /**
+     * Return requested file as a StreamingResponse.
+     * @param Request $request
+     * @param int $id Entity id
+     * @param string $mapping Mapping of the UploadBundle and VichUpload configuration
+     */
+    public function downloadActionHelper(Request $request, $id, $mapping) {
+//        var_dump($this->get('vich_uploader.metadata_reader')->getUploadableFields(\Symfony\Component\Security\Core\Util\ClassUtils::getRealClass($lr)));
+//        var_dump($this->container->getParameter('melolab_biogestion_fileupload.mappings'));
+//        var_dump($this->container->getParameter('vich_uploader.mappings')); die();
+
+        $mappings = $this->container->getParameter('melolab_biogestion_fileupload.mappings');
+        $config = $mappings[$mapping];
+
+        if (!$config) {
+            throw new NotFoundHttpException($this->translator->trans('file.entity_not_found'));
+        }
+
+        $entity = $this->em->getRepository($config['entity'])->{$config['repository_method']}($id);
+
+        if (!$entity) {
+            throw new NotFoundHttpException($this->translator->trans('file.entity_not_found'));
+        }
+
+        // Security
+//        var_dump($request->headers->get('referer'));
+        if (false === $config['download_ignore_security']) {
+            if (true === $config['allow_anonymous_downloads']) {
+                if (true === $this->securityContext->isGranted('IS_AUTHENTICATED_REMEMBERED') and false === $this->securityContext->isGranted('VIEW', $entity)) {
+                    throw new AccessDeniedException();
+                }
+            } else {
+                if (false === $this->securityContext->isGranted('VIEW', $entity)) {
+                    throw new AccessDeniedException();
+                }
+            }
+        }
+        if (true === $config['download_ignore_security']) {
+            $refererRoute = $this->container->get('upload.handler')->getRouteFromReferer($request);
+//            var_dump($refererRoute);
+//            var_dump($config['download_allowed_referer_routes']);
+            if (!$refererRoute or !in_array($refererRoute, $config['download_allowed_referer_routes'])) {
+                throw new AccessDeniedException();
+            }
+        }
+
+        $mimeTypes = array(
+            'pdf' => 'application/pdf',
+            'txt' => 'text/plain',
+            'html' => 'text/html',
+            'exe' => 'application/octet-stream',
+            'zip' => 'application/zip',
+            'doc' => 'application/msword',
+            'xls' => 'application/vnd.ms-excel',
+            'ppt' => 'application/vnd.ms-powerpoint',
+            'gif' => 'image/gif',
+            'png' => 'image/png',
+            'jpeg' => 'image/jpg',
+            'jpg' => 'image/jpg',
+            'php' => 'text/plain'
+        );
+
+        // Get filename
+        $filename = $entity->{$config['filename_getter']}();
+
+        if (!$filename) {
+            throw new NotFoundHttpException($this->get('translator')->trans('file.file_not_found'));
+        }
+
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $uploadFolder = $this->container->getParameter('vich_uploader.mappings')[$config['vich_mapping']]['upload_destination'];
+
+        // Full path to file
+        $path = $uploadFolder."/".$filename;
+//        var_dump($uploadFolder."/".$filename);
+//        die;
+
+        // Prepare the http response
+        $response = new StreamedResponse();
+        $response->setCallback(function() use ($path) {
+            $fp = fopen($path, 'rb');
+            fpassthru($fp);
+        });
+        $response->headers->set('Content-Type', $mimeTypes[$ext]);
+
+        return $response;
     }
 }

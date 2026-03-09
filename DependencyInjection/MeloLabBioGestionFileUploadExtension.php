@@ -2,6 +2,7 @@
 
 namespace MeloLab\BioGestion\FileUploadBundle\DependencyInjection;
 
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
@@ -31,9 +32,26 @@ class MeloLabBioGestionFileUploadExtension extends Extension
         $container->setParameter('melolab_biogestion_fileupload.temp_files_path', $config['temp_files_path']);
         $container->setParameter('melolab_biogestion_fileupload.mappings', $config['mappings']);
 
+        // Validate download_allowed_referer_routes is given when download_ignore_security is enabled
+        $this->validateDownloadAllowedRefererRoutes($config['mappings']);
+
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yml');
 //        $loader->load('config.yml');
+    }
+
+    /**
+     * Validate download_allowed_referer_routes is given when download_ignore_security is enabled
+     * @param $mappings
+     */
+    private function validateDownloadAllowedRefererRoutes($mappings) {
+        foreach ($mappings as $mapping => $val) {
+            if ($val['download_ignore_security']) {
+                if (!$val['download_allowed_referer_routes']) {
+                    throw new InvalidConfigurationException('Error for mapping "'. $mapping .'": Option "download_allowed_referer_routes" is required when "download_ignore_security" is enabled.');
+                }
+            }
+        }
     }
     
     /**
