@@ -1,10 +1,10 @@
 {
-    "name": "archie18/file-upload-bundle",
+    "name": "biosysfcb/file-upload-bundle",
     "type": "symfony-bundle",
     "description": "Bundle that provides AJAX file uploads managed via blueimp/jQuery-File-Upload and dustin10/VichUploaderBundle.",
     "keywords": ["Symfony2", "bundle", "upload", "file", "jQuery"],
     "license": "Proprietary",
-    "homepage": "https://github.com/archie18/FileUploadBundle",
+    "homepage": "https://github.com/biosysfcb/FileUploadBundle",
     "authors": [
         {
             "name": "Andreas Schueller",
